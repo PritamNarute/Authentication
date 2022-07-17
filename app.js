@@ -1,5 +1,6 @@
-const md5 = require("md5");
 const express = require("express");
+const bcrypt = require ("bcrypt");
+const saltRounds = 10;
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const app = express();
@@ -26,8 +27,9 @@ app.get("/register", function(req,res) {
     res.render("register");
 })
 app.post("/register", function(req,res) {
+    
     email = req.body.email;
-    password = md5(req.body.pass);
+    password = req.body.pass;
     User.findOne({email:email}, function(err,foundResult) {
         if(err) {
             console.log(err);
@@ -37,36 +39,51 @@ app.post("/register", function(req,res) {
                 message = "Yoy have already Registered Please Login To continue...";
                 res.redirect("login");
             }
-            else{
-                const newUser = new User({
-                    email: email,
-                    password: password
-                });
-                newUser.save(function(err) {
-                    if(err) {
-                        console.log(err);
-                    }
-                    else {
-                        res.render("secrets");
-                    }
-                });
-            }
         }
-    })
+    });
+    bcrypt.hash(password, saltRounds, function(err, hash) {
+        if(err) {
+            console.log(err);
+        }
+        else {
+            const newUser = new User({
+                email: email,
+                password: hash
+            });
+            newUser.save(function(err) {
+                if(err) {
+                    console.log(err);
+                }
+                else {
+                    res.render("secrets");
+                }
+            });
+        }
+    });           
     
-})
+})          
 app.post("/login", function(req,res) {
     const email = req.body.email;
-    const pass = md5(req.body.pass);
+    const pass = req.body.pass;
     User.findOne({email:email}, function(err, userFound) {
         if(err) {
             console.log(err);
         }
         else {
             if(userFound) {
-                if(userFound.password === pass) {
-                    res.render("secrets");
-                }
+                bcrypt.compare(pass, userFound.password, function(err, result) {
+                    if(err) {
+                        console.log(err);
+                    }
+                    else {
+                        if(result === true) {
+                            res.render("secrets");
+                        }
+                        else {
+                            res.send("Incorrrect PassWord Log in again");
+                        }
+                    }
+                });
             }
         }
     })
